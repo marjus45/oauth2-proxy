@@ -30,8 +30,9 @@ type SessionState struct {
 	PreferredUsername string   `msgpack:"pu,omitempty"`
 
 	// Internal helpers, not serialized
-	Clock clock.Clock `msgpack:"-"`
-	Lock  Lock        `msgpack:"-"`
+	Clock     clock.Clock         `msgpack:"-"`
+	Lock      Lock                `msgpack:"-"`
+	RawClaims map[string][]string `msgpack:"rc"`
 }
 
 func (s *SessionState) ObtainLock(ctx context.Context, expiration time.Duration) error {
@@ -149,7 +150,12 @@ func (s *SessionState) GetClaim(claim string) []string {
 	case "preferred_username":
 		return []string{s.PreferredUsername}
 	default:
-		return []string{}
+		value, ok := s.RawClaims[claim]
+		if !ok {
+			return []string{}
+		}
+
+		return value
 	}
 }
 

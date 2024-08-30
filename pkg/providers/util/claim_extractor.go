@@ -23,6 +23,9 @@ type ClaimExtractor interface {
 
 	// GetClaimInto fetches a named claim and puts the value into the destination.
 	GetClaimInto(claim string, dst interface{}) (bool, error)
+
+	// GetClaimsMap generates a map of claims to a slice of strings.
+	GetClaimsMap() (map[string][]string, error)
 }
 
 // NewClaimExtractor constructs a new ClaimExtractor from the raw ID Token.
@@ -176,6 +179,28 @@ func coerceClaim(value, dst interface{}) error {
 	return nil
 }
 
+// claimToStringSlice converts the value to slice of string. If the value is of
+// type array, then each item of the array will be converted to string. If the
+// value is of any other type, then a string representation of the value will be
+// generated instead, and placed as the first value of the resulting slice.
+func claimToStringSlice(value interface{}) ([]string, error) {
+
+	switch value.(type) {
+	case []any:
+		strSlice, err := toStringSlice(value)
+		if err != nil {
+			return []string{}, fmt.Errorf("could not convert value to string slice: %v", err)
+		}
+		return strSlice, nil
+	default:
+		str, err := toString(value)
+		if err != nil {
+			return []string{}, fmt.Errorf("could not convert value to string: %v", err)
+		}
+		return []string{str}, nil
+	}
+}
+
 // toStringSlice converts an interface (either a slice or single value) into
 // a slice of strings.
 func toStringSlice(value interface{}) ([]string, error) {
@@ -212,4 +237,25 @@ func toString(value interface{}) (string, error) {
 		return "", err
 	}
 	return string(jsonStr), nil
+}
+
+// GetClaimsMap generates a map of claims to a slice of strings. If the value of
+// the claim is not of type array, then a string representation of the value
+// will be generated instead, and placed as the first value of the slice.
+func (c *claimExtractor) GetClaimsMap() (map[string][]string, error) {
+
+	claimMapSlice := make(map[string][]string)
+	claimMap, err := c.tokenClaims.Map()
+	if err != nil {
+		return nil, fmt.Errorf("invalid token claim map: %v", err)
+	}
+
+	for key, value := range claimMap {
+		claimMapSlice[key], err = claimToStringSlice(value)
+		if err != nil {
+			return nil, fmt.Errorf("could not convert the value of claim %q to a string: %v", key, err)
+		}
+	}
+
+	return claimMapSlice, nil
 }

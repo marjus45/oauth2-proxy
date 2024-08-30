@@ -282,6 +282,11 @@ func (p *ProviderData) buildSessionFromClaims(rawIDToken, accessToken string) (*
 		}
 	}
 
+	ss.RawClaims, err = extractor.GetClaimsMap()
+	if err != nil {
+		return nil, fmt.Errorf("failed to extract the map of claims: %v", err)
+	}
+
 	return ss, nil
 }
 
